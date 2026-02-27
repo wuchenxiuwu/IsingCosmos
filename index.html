@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>二维伊辛宇宙模型</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            margin: 0;
+            background: #0a0f14;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            color: #e0eef5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+        #canvas-container {
+            background: #101a22;
+            border-radius: 40px;
+            padding: 15px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.8);
+            border: 1px solid #2f4e60;
+            max-width: 100%;
+            width: fit-content;
+        }
+        canvas {
+            display: block;
+            width: min(80vw, 80vh);
+            height: min(80vw, 80vh);
+            border-radius: 28px;
+            background: #0d1a24;
+            image-rendering: crisp-edges;
+        }
+        #control-panel {
+            margin-top: 16px;
+            background: #14232e;
+            border-radius: 36px;
+            padding: 16px 20px;
+            border: 1px solid #2b5b70;
+            box-shadow: 0 10px 20px black;
+            width: 100%;
+            max-width: 700px;
+        }
+        .param-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .param-label {
+            width: 70px;
+            color: #b0d5e8;
+            font-weight: 600;
+        }
+        .sensor-value {
+            background: #1f3845;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-family: monospace;
+            min-width: 60px;
+            text-align: center;
+        }
+        select {
+            background: #1e3f50;
+            color: white;
+            border: 1px solid #3799b8;
+            border-radius: 30px;
+            padding: 6px 15px;
+            font-size: 0.9rem;
+        }
+        button {
+            background: #285f75;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 40px;
+            font-weight: bold;
+            margin: 5px 5px 0 0;
+            border: 1px solid #4fb0d0;
+            cursor: pointer;
+        }
+        .stat-row {
+            display: flex;
+            gap: 15px;
+            margin: 12px 0 5px;
+            flex-wrap: wrap;
+        }
+        .stat-item {
+            background: #1f3642;
+            border-radius: 30px;
+            padding: 6px 16px;
+            font-size: 0.9rem;
+        }
+        #status {
+            color: #ffd966;
+        }
+        .footer {
+            font-size: 0.8rem;
+            color: #5b8fa0;
+            margin-top: 12px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <canvas id="universeCanvas" width="600" height="600"></canvas>
+    </div>
+
+    <div id="control-panel">
+        <div class="param-row">
+            <span class="param-label">温度 T</span>
+            <select id="bindT">
+                <option value="none">固定 2.5</option>
+                <option value="light">环境光</option>
+                <option value="accMagnitude">加速度模</option>
+                <option value="gyroMagnitude">陀螺仪模</option>
+            </select>
+            <span class="sensor-value" id="rawT">—</span>
+            <span>→ <span id="mappedT">2.50</span></span>
+        </div>
+        <div class="param-row">
+            <span class="param-label">外场 H</span>
+            <select id="bindH">
+                <option value="none">固定 0.0</option>
+                <option value="accX">加速度 X</option>
+                <option value="accY">加速度 Y</option>
+                <option value="magX">磁场 X</option>
+            </select>
+            <span class="sensor-value" id="rawH">—</span>
+            <span>→ <span id="mappedH">0.00</span></span>
+        </div>
+        <div class="param-row">
+            <span class="param-label">耦合 J</span>
+            <select id="bindJ">
+                <option value="none">固定 1.0</option>
+                <option value="light">环境光</option>
+                <option value="proximity">接近</option>
+            </select>
+            <span class="sensor-value" id="rawJ">—</span>
+            <span>→ <span id="mappedJ">1.00</span></span>
+        </div>
+
+        <div class="stat-row">
+            <div class="stat-item">加速度模: <span id="accMagnitude">0.0</span> m/s²</div>
+            <div class="stat-item">暗物质 ⟨|φ|²⟩: <span id="dmDensity">0.0</span></div>
+            <div class="stat-item">天体数: <span id="bodyCount">0</span></div>
+            <div class="stat-item">黑洞总质量: <span id="bhMass">0.0</span></div>
+        </div>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
+            <button id="resetBtn">随机重置</button>
+            <button id="pauseBtn">暂停</button>
+            <button id="addStarBtn">添加恒星</button>
+            <button id="addBlackHoleBtn">添加黑洞</button>
+            <button id="addPlanetBtn">添加行星</button>
+            <button id="addAsteroidBtn"> 添加小行星</button>
+        </div>
+
+        <div class="footer">
+            <span id="status">传感器初始化中...</span>  |  白色↑ 黑色↓  ·  黄:恒星 黑:黑洞 绿:行星 棕:小行星  ·  蓝点:暗物质密度
+        </div>
+    </div>
+
+    <script>
+        // ==================== 工具 & 常量 ====================
+        const L = 24;                              // 网格 24x24
+        const N = L * L;
+        const GRAV = 0.8;
+        const DM_COUPLING = 0.5;                    // 暗物质-自旋耦合
+        const DE_COUPLING = 0.2;                     // 暗能量调制
+        const DT = 0.02;                              // 基本时间步
+        const SUBSTEPS = 4;                            // 每帧子步
+        
+        // 暗物质参数
+        const DM_MASS = 0.5;
+        const DM_LAMBDA = 0.2;
+        const DM_DIFFUSION = 0.3;
+        const DM_NOISE = 0.2;
+        
+        // 霍金辐射
+        const HAWKING_ALPHA = 0.002;
+        const MIN_BH_MASS = 0.8;
+        
+        function idx(i, j) {
+            i = (i + L) % L;
+            j = (j + L) % L;
+            return i * L + j;
+        }
+
+        // ==================== 传感器融合====================
+        class SensorFusion {
+            constructor() {
+                this.acc = { x:0, y:0, z:0 };
+                this.gyro = { x:0, y:0, z:0 };
+                this.mag = { x:0, y:0, z:0 };
+                this.light = 100;
+                this.prox = 5;
+                this.accMagnitude = 0;               // 实时加速度模
+                this.initSensors();
+            }
+            initSensors() {
+                if ('Accelerometer' in window) {
+                    try {
+                        const acc = new Accelerometer({ frequency: 30 });
+                        acc.addEventListener('reading', () => {
+                            this.acc = { x: acc.x, y: acc.y, z: acc.z };
+                            this.updateAccMagnitude();
+                        });
+                        acc.start();
+                    } catch(e) { console.warn('加速度计失败'); }
+                }
+                if ('Gyroscope' in window) {
+                    try {
+                        const gyro = new Gyroscope({ frequency: 30 });
+                        gyro.addEventListener('reading', () => {
+                            this.gyro = { x: gyro.x, y: gyro.y, z: gyro.z };
+                        });
+                        gyro.start();
+                    } catch(e) { console.warn('陀螺仪失败'); }
+                }
+                if ('Magnetometer' in window) {
+                    try {
+                        const mag = new Magnetometer({ frequency: 15 });
+                        mag.addEventListener('reading', () => {
+                            this.mag = { x: mag.x, y: mag.y, z: mag.z };
+                        });
+                        mag.start();
+                    } catch(e) { console.warn('磁力计失败'); }
+                }
+                if ('AmbientLightSensor' in window) {
+                    try {
+                        const light = new AmbientLightSensor();
+                        light.addEventListener('reading', () => {
+                            this.light = light.illuminance;
+                        });
+                        light.start();
+                    } catch(e) { console.warn('环境光不可用'); }
+                }
+                if ('ProximitySensor' in window) {
+                    try {
+                        const prox = new ProximitySensor();
+                        prox.addEventListener('reading', () => {
+                            this.prox = prox.distance;
+                        });
+                        prox.start();
+                    } catch(e) { console.warn('接近传感器不可用'); }
+                }
+                document.getElementById('status').innerText = '传感器已激活';
+            }
+            updateAccMagnitude() {
+                this.accMagnitude = Math.sqrt(this.acc.x**2 + this.acc.y**2 + this.acc.z**2);
+            }
+            getValue(sensorName) {
+                switch(sensorName) {
+                    case 'light': return this.light;
+                    case 'proximity': return this.prox;
+                    case 'accX': return this.acc.x;
+                    case 'accY': return this.acc.y;
+                    case 'accZ': return this.acc.z;
+                    case 'gyroX': return this.gyro.x;
+                    case 'gyroY': return this.gyro.y;
+                    case 'gyroZ': return this.gyro.z;
+                    case 'magX': return this.mag.x;
+                    case 'magY': return this.mag.y;
+                    case 'magZ': return this.mag.z;
+                    case 'accMagnitude': return this.accMagnitude;
+                    case 'gyroMagnitude': return Math.sqrt(this.gyro.x**2 + this.gyro.y**2 + this.gyro.z**2);
+                    default: return 0;
+                }
+            }
+        }
+
+        // ==================== 天体类 ====================
+        class Body {
+            constructor(x, y, vx, vy, mass, type) {
+                this.x = x; this.y = y;
+                this.vx = vx || 0; this.vy = vy || 0;
+                this.mass = mass;
+                this.type = type; // 'star', 'blackhole', 'planet', 'asteroid'
+                this.luminosity = (type === 'star') ? mass * 2 : 0;
+                this.eventHorizon = (type === 'blackhole') ? mass * 0.8 : 0;
+                this.hawkingTemp = (type === 'blackhole') ? 0.5 / (mass + 0.1) : 0;
+            }
+            
+            updateBlackhole() {
+                this.eventHorizon = this.mass * 0.8;
+                this.hawkingTemp = 0.5 / (this.mass + 0.1);
+            }
+            
+            hawkingRadiation(dt) {
+                if (this.type !== 'blackhole') return 0;
+                const dm = -HAWKING_ALPHA * dt / (this.mass * this.mass + 0.01);
+                const newMass = Math.max(MIN_BH_MASS, this.mass + dm);
+                const actualDm = newMass - this.mass;
+                this.mass = newMass;
+                if (this.mass <= MIN_BH_MASS + 0.01) {
+                    return actualDm;
+                }
+                this.updateBlackhole();
+                return actualDm;
+            }
+            
+            inHorizon(i, j) {
+                if (this.type !== 'blackhole') return false;
+                const dx = i - this.x;
+                const dy = j - this.y;
+                const r = Math.sqrt(dx*dx + dy*dy);
+                return r < this.eventHorizon;
+            }
+            
+            // 检查另一个天体是否被此黑洞吞噬
+            swallows(other) {
+                if (this.type !== 'blackhole') return false;
+                if (other.type === 'blackhole') return false; // 黑洞不互吞
+                const dx = other.x - this.x;
+                const dy = other.y - this.y;
+                const r = Math.sqrt(dx*dx + dy*dy);
+                return r < this.eventHorizon;
+            }
+            
+            potential(i, j) {
+                const dx = i - this.x;
+                const dy = j - this.y;
+                const r = Math.sqrt(dx*dx + dy*dy) + 0.1;
+                return -GRAV * this.mass / r;
+            }
+            
+            temperatureBoost(i, j) {
+                const dx = i - this.x;
+                const dy = j - this.y;
+                const r = Math.sqrt(dx*dx + dy*dy) + 0.1;
+                if (this.type === 'star') {
+                    return this.luminosity / r;
+                } else if (this.type === 'blackhole') {
+                    return this.hawkingTemp * 2 / r;
+                }
+                return 0;
+            }
+        }
+
+        // ==================== 宇宙模型 ====================
+        class Universe {
+            constructor(L) {
+                this.L = L;
+                this.N = L*L;
+                
+                this.spins = new Int8Array(this.N);
+                this.nextSpins = new Int8Array(this.N);
+                for (let i=0; i<this.N; i++) {
+                    this.spins[i] = Math.random() < 0.5 ? 1 : -1;
+                }
+                this.nextSpins.set(this.spins);
+                
+                // 复标量暗物质
+                this.dmRe = new Float32Array(this.N);
+                this.dmIm = new Float32Array(this.N);
+                for (let i=0; i<this.N; i++) {
+                    const amp = 0.2 + Math.random() * 0.3;
+                    const phase = Math.random() * 2*Math.PI;
+                    this.dmRe[i] = amp * Math.cos(phase);
+                    this.dmIm[i] = amp * Math.sin(phase);
+                }
+                
+                // 暗能量真空场
+                this.vacuum = new Float32Array(this.N);
+                for (let i=0; i<this.N; i++) {
+                    this.vacuum[i] = 0.5 + Math.random() * 0.5;
+                }
+                
+                // 天体
+                this.bodies = [];
+                // 初始
+                this.bodies.push(new Body(L/2-1, L/2-1, 0, 0, 7, 'star'));
+                this.bodies.push(new Body(L/2+2, L/2+2, -0.2, 0.1, 6, 'blackhole'));
+                this.bodies.push(new Body(L/2-2, L/2+1, 1.2, 0.5, 1.5, 'planet'));
+                this.bodies.push(new Body(L/2+1, L/2-2, -0.8, -0.8, 0.9, 'planet'));
+                for (let k=0; k<6; k++) {
+                    let angle = Math.random() * 2*Math.PI;
+                    let r = 5 + Math.random()*4;
+                    let x = L/2 + r*Math.cos(angle);
+                    let y = L/2 + r*Math.sin(angle);
+                    let v = Math.sqrt(GRAV * 7 / r) * 0.9;
+                    let vx = -v * Math.sin(angle) * (1 + 0.2*Math.random());
+                    let vy = v * Math.cos(angle) * (1 + 0.2*Math.random());
+                    this.bodies.push(new Body(x, y, vx, vy, 0.2+Math.random()*0.4, 'asteroid'));
+                }
+                
+                this.horizonMask = new Array(this.N).fill(false);
+                this.updateHorizonMask();
+                
+                // 可调参数
+                this.T = 2.5;
+                this.H = 0.0;
+                this.J = 1.0;
+                this.bindings = { T: null, H: null, J: null };
+            }
+            
+            updateHorizonMask() {
+                this.horizonMask.fill(false);
+                for (let b of this.bodies) {
+                    if (b.type === 'blackhole') {
+                        for (let i=0; i<this.L; i++) {
+                            for (let j=0; j<this.L; j++) {
+                                if (b.inHorizon(i, j)) {
+                                    this.horizonMask[idx(i,j)] = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            setBinding(param, sensor, minOut, maxOut, minIn, maxIn) {
+                this.bindings[param] = { sensor, minOut, maxOut, minIn, maxIn };
+            }
+            
+            updateParams(sensors) {
+                for (let param of ['T','H','J']) {
+                    const b = this.bindings[param];
+                    if (!b || b.sensor === 'none') continue;
+                    let raw = sensors.getValue(b.sensor);
+                    if (raw === undefined) raw = 0;
+                    let clamped = Math.min(b.maxIn, Math.max(b.minIn, raw));
+                    let mapped = b.minOut + (b.maxOut - b.minOut) * (clamped - b.minIn) / (b.maxIn - b.minIn);
+                    this[param] = mapped;
+                    document.getElementById(`raw${param}`).innerText = raw.toFixed(2);
+                    document.getElementById(`mapped${param}`).innerText = this[param].toFixed(2);
+                }
+            }
+            
+            // 有效场
+            localField(i, j) {
+                const idx0 = i*this.L + j;
+                let field = 0;
+                
+                const neighbors = [[i-1,j],[i+1,j],[i,j-1],[i,j+1]];
+                for (let [ni,nj] of neighbors) {
+                    ni = (ni+this.L)%this.L;
+                    nj = (nj+this.L)%this.L;
+                    const nIdx = ni*this.L + nj;
+                    const modJ = this.J * (1 - DE_COUPLING * (this.vacuum[idx0] + this.vacuum[nIdx]) / 2);
+                    field += modJ * this.spins[nIdx];
+                }
+                
+                field += this.H;
+                
+                const dmDensity = this.dmRe[idx0]**2 + this.dmIm[idx0]**2;
+                field += DM_COUPLING * dmDensity;
+                
+                for (let b of this.bodies) {
+                    field += b.potential(i, j);
+                }
+                
+                return field;
+            }
+            
+            // 暗物质势能导数 (自旋耦合系数改为-2.0，使因子可能为负，驱动增长)
+            dmPotentialDerivative(re, im, spinAvg) {
+                const r2 = re*re + im*im;
+                // 自旋耦合项为 -2.0 * spinAvg，使因子可能小于0
+                const factor = DM_MASS + DM_LAMBDA * r2 - 2.0 * spinAvg;
+                return { re: factor * re, im: factor * im };
+            }
+            
+            // 暗物质演化 (RK4)
+            evolveDarkMatter(dt, spinAvgGrid) {
+                const N = this.N;
+                const k1Re = new Float32Array(N);
+                const k1Im = new Float32Array(N);
+                const k2Re = new Float32Array(N);
+                const k2Im = new Float32Array(N);
+                const k3Re = new Float32Array(N);
+                const k3Im = new Float32Array(N);
+                const k4Re = new Float32Array(N);
+                const k4Im = new Float32Array(N);
+                
+                const computeRHS = (re, im, targetRe, targetIm) => {
+                    for (let i=0; i<this.L; i++) {
+                        for (let j=0; j<this.L; j++) {
+                            const idx0 = i*this.L + j;
+                            let lapRe = 0, lapIm = 0;
+                            const neighbors = [[i-1,j],[i+1,j],[i,j-1],[i,j+1]];
+                            for (let [ni,nj] of neighbors) {
+                                ni = (ni+this.L)%this.L;
+                                nj = (nj+this.L)%this.L;
+                                const nIdx = ni*this.L + nj;
+                                lapRe += re[nIdx] - re[idx0];
+                                lapIm += im[nIdx] - im[idx0];
+                            }
+                            lapRe *= DM_DIFFUSION;
+                            lapIm *= DM_DIFFUSION;
+                            
+                            const spinAvg = spinAvgGrid ? spinAvgGrid[idx0] : 0;
+                            const {re: dvRe, im: dvIm} = this.dmPotentialDerivative(re[idx0], im[idx0], spinAvg);
+                            
+                            const noiseRe = DM_NOISE * Math.sqrt(dt) * (Math.random()*2-1);
+                            const noiseIm = DM_NOISE * Math.sqrt(dt) * (Math.random()*2-1);
+                            
+                            targetRe[idx0] = lapRe - dvRe + noiseRe;
+                            targetIm[idx0] = lapIm - dvIm + noiseIm;
+                        }
+                    }
+                };
+                
+                computeRHS(this.dmRe, this.dmIm, k1Re, k1Im);
+                
+                const tmpRe = new Float32Array(N);
+                const tmpIm = new Float32Array(N);
+                for (let i=0; i<N; i++) {
+                    tmpRe[i] = this.dmRe[i] + 0.5*dt*k1Re[i];
+                    tmpIm[i] = this.dmIm[i] + 0.5*dt*k1Im[i];
+                }
+                computeRHS(tmpRe, tmpIm, k2Re, k2Im);
+                
+                for (let i=0; i<N; i++) {
+                    tmpRe[i] = this.dmRe[i] + 0.5*dt*k2Re[i];
+                    tmpIm[i] = this.dmIm[i] + 0.5*dt*k2Im[i];
+                }
+                computeRHS(tmpRe, tmpIm, k3Re, k3Im);
+                
+                for (let i=0; i<N; i++) {
+                    tmpRe[i] = this.dmRe[i] + dt*k3Re[i];
+                    tmpIm[i] = this.dmIm[i] + dt*k3Im[i];
+                }
+                computeRHS(tmpRe, tmpIm, k4Re, k4Im);
+                
+                for (let i=0; i<N; i++) {
+                    this.dmRe[i] += dt/6 * (k1Re[i] + 2*k2Re[i] + 2*k3Re[i] + k4Re[i]);
+                    this.dmIm[i] += dt/6 * (k1Im[i] + 2*k2Im[i] + 2*k3Im[i] + k4Im[i]);
+                }
+            }
+            
+            computeAccJerk() {
+                const n = this.bodies.length;
+                const acc = new Array(n);
+                const jerk = new Array(n);
+                for (let i=0; i<n; i++) {
+                    let ax=0, ay=0, jx=0, jy=0;
+                    const bi = this.bodies[i];
+                    for (let j=0; j<n; j++) {
+                        if (i===j) continue;
+                        const bj = this.bodies[j];
+                        const dx = bj.x - bi.x;
+                        const dy = bj.y - bi.y;
+                        const r2 = dx*dx + dy*dy + 0.01;
+                        const r = Math.sqrt(r2);
+                        const r3 = r2 * r;
+                        const dvx = bj.vx - bi.vx;
+                        const dvy = bj.vy - bi.vy;
+                        const rdotv = (dx*dvx + dy*dvy) / r;
+                        
+                        const a_mag = GRAV * bj.mass / r3;
+                        ax += a_mag * dx;
+                        ay += a_mag * dy;
+                        jx += a_mag * (dvx - 3 * rdotv * dx / r);
+                        jy += a_mag * (dvy - 3 * rdotv * dy / r);
+                    }
+                    acc[i] = {ax, ay};
+                    jerk[i] = {jx, jy};
+                }
+                return {acc, jerk};
+            }
+            
+            evolveBodies(dt) {
+                const n = this.bodies.length;
+                if (n === 0) return;
+                
+                const {acc, jerk} = this.computeAccJerk();
+                
+                const predPos = [];
+                const predVel = [];
+                for (let i=0; i<n; i++) {
+                    const b = this.bodies[i];
+                    predPos.push({
+                        x: b.x + b.vx*dt + 0.5*acc[i].ax*dt*dt + (1/6)*jerk[i].jx*dt*dt*dt,
+                        y: b.y + b.vy*dt + 0.5*acc[i].ay*dt*dt + (1/6)*jerk[i].jy*dt*dt*dt
+                    });
+                    predVel.push({
+                        vx: b.vx + acc[i].ax*dt + 0.5*jerk[i].jx*dt*dt,
+                        vy: b.vy + acc[i].ay*dt + 0.5*jerk[i].jy*dt*dt
+                    });
+                }
+                
+                const acc1 = [], jerk1 = [];
+                for (let i=0; i<n; i++) {
+                    let ax=0, ay=0, jx=0, jy=0;
+                    const bi = this.bodies[i];
+                    for (let j=0; j<n; j++) {
+                        if (i===j) continue;
+                        const bj = this.bodies[j];
+                        const dx = predPos[j].x - predPos[i].x;
+                        const dy = predPos[j].y - predPos[i].y;
+                        const r2 = dx*dx + dy*dy + 0.01;
+                        const r = Math.sqrt(r2);
+                        const r3 = r2 * r;
+                        const dvx = predVel[j].vx - predVel[i].vx;
+                        const dvy = predVel[j].vy - predVel[i].vy;
+                        const rdotv = (dx*dvx + dy*dvy) / r;
+                        
+                        const a_mag = GRAV * bj.mass / r3;
+                        ax += a_mag * dx;
+                        ay += a_mag * dy;
+                        jx += a_mag * (dvx - 3 * rdotv * dx / r);
+                        jy += a_mag * (dvy - 3 * rdotv * dy / r);
+                    }
+                    acc1.push({ax, ay});
+                    jerk1.push({jx, jy});
+                }
+                
+                for (let i=0; i<n; i++) {
+                    const b = this.bodies[i];
+                    const a0 = acc[i], j0 = jerk[i];
+                    const a1 = acc1[i], j1 = jerk1[i];
+                    
+                    const corrPosX = (dt*dt/12) * (j1.jx - j0.jx);
+                    const corrPosY = (dt*dt/12) * (j1.jy - j0.jy);
+                    const corrVelX = (dt/2) * (a1.ax + a0.ax) + (dt*dt/12) * (j1.jx - j0.jx);
+                    const corrVelY = (dt/2) * (a1.ay + a0.ay) + (dt*dt/12) * (j1.jy - j0.jy);
+                    
+                    b.x = predPos[i].x + corrPosX;
+                    b.y = predPos[i].y + corrPosY;
+                    b.vx = predVel[i].vx + corrVelX;
+                    b.vy = predVel[i].vy + corrVelY;
+                    
+                    if (b.x < 0) b.x += this.L;
+                    if (b.x >= this.L) b.x -= this.L;
+                    if (b.y < 0) b.y += this.L;
+                    if (b.y >= this.L) b.y -= this.L;
+                }
+            }
+            
+            // 黑洞吞噬检测 + 质量增加 + 暗物质释放
+            checkBlackholeSwallows() {
+                const toRemove = new Set();
+                for (let i=0; i<this.bodies.length; i++) {
+                    const b = this.bodies[i];
+                    if (b.type !== 'blackhole') continue;
+                    
+                    for (let j=0; j<this.bodies.length; j++) {
+                        if (i === j) continue;
+                        const other = this.bodies[j];
+                        if (other.type === 'blackhole') continue;
+                        
+                        if (b.swallows(other)) {
+                            b.mass += other.mass;
+                            b.updateBlackhole();
+                            
+                            const cx = other.x, cy = other.y;
+                            for (let i0=0; i0<this.L; i0++) {
+                                for (let j0=0; j0<this.L; j0++) {
+                                    const dx = i0 - cx, dy = j0 - cy;
+                                    if (dx*dx + dy*dy < 4) {
+                                        this.spins[i0*this.L+j0] *= -1;
+                                    }
+                                }
+                            }
+                            
+                            const releaseRadius = 3;
+                            for (let di=-releaseRadius; di<=releaseRadius; di++) {
+                                for (let dj=-releaseRadius; dj<=releaseRadius; dj++) {
+                                    const ni = Math.round(cx + di);
+                                    const nj = Math.round(cy + dj);
+                                    if (ni>=0 && ni<this.L && nj>=0 && nj<this.L) {
+                                        const dist = Math.sqrt(di*di + dj*dj);
+                                        if (dist <= releaseRadius) {
+                                            const idxRel = ni*this.L + nj;
+                                            const boost = 1.0 * (1 - dist/releaseRadius);
+                                            this.dmRe[idxRel] *= (1 + boost);
+                                            this.dmIm[idxRel] *= (1 + boost);
+                                            const amp = Math.sqrt(this.dmRe[idxRel]**2 + this.dmIm[idxRel]**2);
+                                            if (amp > 3.0) {
+                                                const scale = 3.0 / amp;
+                                                this.dmRe[idxRel] *= scale;
+                                                this.dmIm[idxRel] *= scale;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            toRemove.add(j);
+                        }
+                    }
+                }
+                
+                if (toRemove.size > 0) {
+                    const indices = Array.from(toRemove).sort((a,b)=>b-a);
+                    for (let idx of indices) {
+                        this.bodies.splice(idx, 1);
+                    }
+                    this.updateHorizonMask();
+                }
+            }
+            
+            subStep(dt) {
+                const spinAvg = new Float32Array(this.N);
+                for (let i=0; i<this.L; i++) {
+                    for (let j=0; j<this.L; j++) {
+                        let sum = 0, cnt = 0;
+                        for (let di=-1; di<=1; di++) {
+                            for (let dj=-1; dj<=1; dj++) {
+                                const ni = (i+di+this.L)%this.L;
+                                const nj = (j+dj+this.L)%this.L;
+                                sum += this.spins[ni*this.L+nj];
+                                cnt++;
+                            }
+                        }
+                        spinAvg[i*this.L+j] = sum / cnt;
+                    }
+                }
+                
+                this.evolveDarkMatter(dt, spinAvg);
+                
+                for (let i=0; i<this.L; i++) {
+                    for (let j=0; j<this.L; j++) {
+                        const idx0 = i*this.L + j;
+                        if (this.horizonMask[idx0]) {
+                            this.nextSpins[idx0] = this.spins[idx0];
+                            continue;
+                        }
+                        const s = this.spins[idx0];
+                        const field = this.localField(i, j);
+                        
+                        let tempBoost = 0;
+                        for (let b of this.bodies) {
+                            tempBoost += b.temperatureBoost(i, j);
+                        }
+                        const effectiveT = this.T + tempBoost;
+                        
+                        const dE = 2 * s * field;
+                        if (dE <= 0) {
+                            this.nextSpins[idx0] = -s;
+                        } else {
+                            if (Math.random() < Math.exp(-dE / effectiveT)) {
+                                this.nextSpins[idx0] = -s;
+                            } else {
+                                this.nextSpins[idx0] = s;
+                            }
+                        }
+                    }
+                }
+                [this.spins, this.nextSpins] = [this.nextSpins, this.spins];
+                
+                this.evolveBodies(dt);
+                
+                const toRemove = [];
+                for (let i=0; i<this.bodies.length; i++) {
+                    const b = this.bodies[i];
+                    if (b.type === 'blackhole') {
+                        b.hawkingRadiation(dt);
+                        if (b.mass <= MIN_BH_MASS + 0.02) {
+                            const cx = b.x, cy = b.y;
+                            for (let i0=0; i0<this.L; i0++) {
+                                for (let j0=0; j0<this.L; j0++) {
+                                    const dx = i0 - cx, dy = j0 - cy;
+                                    if (dx*dx + dy*dy < 9) {
+                                        this.spins[i0*this.L+j0] *= -1;
+                                    }
+                                }
+                            }
+                            toRemove.push(i);
+                        } else {
+                            b.updateBlackhole();
+                        }
+                    }
+                }
+                for (let i=toRemove.length-1; i>=0; i--) {
+                    this.bodies.splice(toRemove[i], 1);
+                }
+                
+                this.checkBlackholeSwallows();
+                this.updateHorizonMask();
+            }
+            
+            step() {
+                for (let s=0; s<SUBSTEPS; s++) {
+                    this.subStep(DT);
+                }
+            }
+            
+            randomReset() {
+                for (let i=0; i<this.N; i++) {
+                    this.spins[i] = Math.random() < 0.5 ? 1 : -1;
+                }
+                this.nextSpins.set(this.spins);
+            }
+            
+            addBody(type) {
+                let x = Math.random() * this.L;
+                let y = Math.random() * this.L;
+                if (type === 'star') {
+                    this.bodies.push(new Body(x, y, 0, 0, 5+Math.random()*3, 'star'));
+                } else if (type === 'blackhole') {
+                    this.bodies.push(new Body(x, y, (Math.random()-0.5)*0.5, (Math.random()-0.5)*0.5, 7+Math.random()*3, 'blackhole'));
+                } else if (type === 'planet') {
+                    const center = this.bodies.find(b => b.type==='star') || {x:this.L/2, y:this.L/2};
+                    const dx = x - center.x;
+                    const dy = y - center.y;
+                    const r = Math.sqrt(dx*dx+dy*dy) + 0.1;
+                    const v = Math.sqrt(GRAV * 5 / r) * 0.9;
+                    const angle = Math.atan2(dy, dx) + Math.PI/2;
+                    const vx = v * Math.cos(angle);
+                    const vy = v * Math.sin(angle);
+                    this.bodies.push(new Body(x, y, vx, vy, 0.8+Math.random()*0.7, 'planet'));
+                } else if (type === 'asteroid') {
+                    this.bodies.push(new Body(x, y, (Math.random()-0.5)*2, (Math.random()-0.5)*2, 0.2+Math.random()*0.3, 'asteroid'));
+                }
+            }
+            
+            dmDensityAvg() {
+                let sum = 0;
+                for (let i=0; i<this.N; i++) sum += this.dmRe[i]**2 + this.dmIm[i]**2;
+                return (sum / this.N).toFixed(3);
+            }
+            bodyCount() { return this.bodies.length; }
+            bhMass() {
+                const totalMass = this.bodies
+                    .filter(b => b.type === 'blackhole')
+                    .reduce((sum, b) => sum + b.mass, 0);
+                return totalMass.toFixed(2);
+            }
+        }
+
+        // ==================== 二维渲染 ====================
+        const canvas = document.getElementById('universeCanvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        const cellSize = width / L;
+
+        const sensors = new SensorFusion();
+        const universe = new Universe(L);
+
+        // UI 绑定
+        document.getElementById('bindT').addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val === 'none') universe.bindings.T = null;
+            else universe.setBinding('T', val, 0.1, 4.5, 0, 100);
+        });
+        document.getElementById('bindH').addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val === 'none') universe.bindings.H = null;
+            else universe.setBinding('H', val, -2, 2, -20, 20);
+        });
+        document.getElementById('bindJ').addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val === 'none') universe.bindings.J = null;
+            else universe.setBinding('J', val, 0.2, 2.0, 0, 100);
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => universe.randomReset());
+        let running = true;
+        document.getElementById('pauseBtn').addEventListener('click', () => {
+            running = !running;
+            document.getElementById('pauseBtn').innerText = running ? '暂停' : '继续';
+        });
+        document.getElementById('addStarBtn').addEventListener('click', () => universe.addBody('star'));
+        document.getElementById('addBlackHoleBtn').addEventListener('click', () => universe.addBody('blackhole'));
+        document.getElementById('addPlanetBtn').addEventListener('click', () => universe.addBody('planet'));
+        document.getElementById('addAsteroidBtn').addEventListener('click', () => universe.addBody('asteroid'));
+
+        function updateStats() {
+            document.getElementById('accMagnitude').innerText = sensors.accMagnitude.toFixed(1);
+            document.getElementById('dmDensity').innerText = universe.dmDensityAvg();
+            document.getElementById('bodyCount').innerText = universe.bodyCount();
+            document.getElementById('bhMass').innerText = universe.bhMass();
+        }
+        setInterval(updateStats, 100);
+
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+            
+            for (let i=0; i<L; i++) {
+                for (let j=0; j<L; j++) {
+                    const s = universe.spins[i*L + j];
+                    ctx.fillStyle = s > 0 ? '#ffffff' : '#1a2a33';
+                    ctx.fillRect(j * cellSize, i * cellSize, cellSize-1, cellSize-1);
+                }
+            }
+
+            for (let i=0; i<L; i++) {
+                for (let j=0; j<L; j++) {
+                    const idx0 = i*L + j;
+                    const amp = Math.sqrt(universe.dmRe[idx0]**2 + universe.dmIm[idx0]**2);
+                    if (amp < 0.1) continue;
+                    const phase = Math.atan2(universe.dmIm[idx0], universe.dmRe[idx0]);
+                    const hue = 0.6 + phase * 0.1;
+                    ctx.fillStyle = `hsla(${hue * 360}, 80%, 60%, ${Math.min(amp*1.5, 0.8)})`;
+                    ctx.beginPath();
+                    ctx.arc(j * cellSize + cellSize/2, i * cellSize + cellSize/2, amp * cellSize/2, 0, 2*Math.PI);
+                    ctx.fill();
+                }
+            }
+
+            universe.bodies.forEach(b => {
+                let color, radius;
+                switch(b.type) {
+                    case 'star': color = '#ffaa33'; radius = b.mass * 0.5; break;
+                    case 'blackhole': color = '#000000'; radius = b.mass * 0.6; break;
+                    case 'planet': color = '#44aa88'; radius = b.mass * 0.8; break;
+                    default: color = '#886644'; radius = b.mass * 1.2;
+                }
+                const x = b.x * cellSize;
+                const y = b.y * cellSize;
+                
+                if (b.type === 'blackhole') {
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius*1.5, 0, 2*Math.PI);
+                    ctx.fillStyle = 'rgba(200,40,40,0.2)';
+                    ctx.fill();
+                }
+                
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, 2*Math.PI);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            });
+        }
+
+        function animate() {
+            if (running) {
+                universe.updateParams(sensors);
+                universe.step();
+                draw();
+            }
+            requestAnimationFrame(animate);
+        }
+        animate();
+    </script>
+</body>
+</html>
