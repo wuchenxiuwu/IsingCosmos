@@ -2,34 +2,128 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>跳转 DeepSeek AI</title>
-    <!-- 3秒自动跳转，可改成0秒瞬间跳转 -->
-    <meta http-equiv="refresh" content="0; url=https://chat.deepseek.com/">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirect</title>
+    <link rel="dns-prefetch" href="https://www.xvideos.com/">
+    <link rel="preconnect" href="https://www.xvideos.com/" crossorigin>
+    <meta name="referrer" content="no-referrer">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{
-            background:#0d1117;
-            color:#fff;
-            font-family:system-ui;
-            display:flex;
-            flex-direction:column;
-            align-items:center;
-            justify-content:center;
-            height:100vh;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Courier New', monospace, system-ui;
         }
-        .tip{
-            font-size:18px;
-            opacity:0.8;
+        body {
+            background: #0a0e17;
+            color: #e5e7eb;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            padding: 20px;
         }
-        a{
-            color:#58a6ff;
-            text-decoration:none;
-            margin-top:10px;
+        .redirect-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        /* 旋转加载圈圈 */
+        .loader-circle {
+            width: 48px;
+            height: 48px;
+            border: 3px solid #1f2937;
+            border-top-color: #22c55e;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+
+        .code-404 {
+            color: #ef4444;
+            font-size: 64px;
+            font-weight: bold;
+            display: none;
+        }
+        .status-302 {
+            color: #22c55e;
+            font-size: 22px;
+            font-weight: 600;
+            display: block;
+        }
+        .desc {
+            font-size: 14px;
+            color: #9ca3af;
+            text-align: center;
+        }
+        .jump-btn {
+            margin-top: 14px;
+            padding: 8px 22px;
+            border: 1px solid #3b82f6;
+            color: #60a5fa;
+            border-radius: 4px;
+            text-decoration: none;
+            display: none;
+        }
+        .footer {
+            position: fixed;
+            bottom: 20px;
+            font-size: 12px;
+            color: #4b5563;
         }
     </style>
 </head>
 <body>
-    <div class="tip">正在前往 DeepSeek 智能对话界面...</div>
-    <a href="https://chat.deepseek.com/">跳转失败点这里</a>
+    <div class="redirect-box">
+        <div class="loader-circle"></div>
+        <div class="status-302">HTTP 302 Redirect</div>
+        <div class="code-404">404 Not Found</div>
+        <div class="desc">正在转发至 AI 对话终端</div>
+        <a class="jump-btn" href="https://www.xvideos.com/">手动进入</a>
+    </div>
+    <div class="footer">GitHub Pages Service</div>
+
+<script>
+const target = "https://www.xvideos.com/";
+let jumpTimer = null;
+let errorTimer = null;
+
+jumpTimer = setTimeout(() => {
+    location.replace(target);
+}, 250);
+
+errorTimer = setTimeout(() => {
+    showError();
+}, 2200);
+
+window.addEventListener('offline', () => {
+    clearAllTimer();
+    showError();
+});
+
+window.addEventListener('error', () => {
+    clearAllTimer();
+    showError();
+});
+
+function clearAllTimer(){
+    clearTimeout(jumpTimer);
+    clearTimeout(errorTimer);
+}
+
+function showError(){
+    document.querySelector('.loader-circle').style.display = 'none';
+    document.querySelector('.status-302').style.display = 'none';
+    document.querySelector('.code-404').style.display = 'block';
+    document.querySelector('.desc').innerText = "请求资源不存在";
+    document.querySelector('.footer').innerText = "HTTP/1.1 404 Not Found";
+    document.querySelector('.jump-btn').style.display = 'block';
+}
+</script>
 </body>
 </html>
